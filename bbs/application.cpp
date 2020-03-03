@@ -33,6 +33,7 @@
 #include "bbs/menu.h"
 #include "bbs/netsup.h"
 #include "bbs/null_remote_io.h"
+#include "bbs/multinst.h"
 #include "bbs/remote_io.h"
 #include "bbs/ssh.h"
 #include "bbs/syschat.h"
@@ -741,6 +742,7 @@ int Application::Run(int argc, char* argv[]) {
   cmdline.add_argument({"remaining_min", 'r', "Specify max # minutes until event", "0"});
   cmdline.add_argument({"user_num", 'u', "Pass usernumber <user#> online", "0"});
   cmdline.add_argument(BooleanCommandLineArgument{"version", 'V', "Display version.", false});
+  cmdline.add_argument(BooleanCommandLineArgument{"nodestatus", 'S', "Display node status.", false});
   cmdline.add_argument({"x", 'x', "Someone is logged in with t for telnet or s for ssh.", ""});
   cmdline.add_argument(BooleanCommandLineArgument{"no_hangup", 'z',
                                                   "Do not hang up on user when at log off", false});
@@ -756,6 +758,9 @@ int Application::Run(int argc, char* argv[]) {
     return EXIT_SUCCESS;
   } else  if (cmdline.barg("version")) {
     cout << "WWIV Bulletin Board System [" << wwiv_version << beta_version << "]\r\n\n";
+    return 0;
+  } else  if (cmdline.barg("nodestatus")) {
+    multi_instance();
     return 0;
   }
 
