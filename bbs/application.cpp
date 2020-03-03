@@ -763,7 +763,7 @@ int Application::Run(int argc, char* argv[]) {
     auto num = num_instances();
     if (num < 1) {
       cout << "|#6Couldn't find instance data file.\r\n";
-      return;
+      return EXIT_FAILURE;
     }
 
     cout << fmt::sprintf("|#5Node |#1%-35.35s |#2%-37.37s\r\n", "User Name", "Activity");
