@@ -18,7 +18,6 @@
 #ifndef __INCLUDED_SDK_MESSAGE_AREA_WWIV_H__
 #define __INCLUDED_SDK_MESSAGE_AREA_WWIV_H__
 
-#include "core/file.h"
 #include "sdk/msgapi/message.h"
 #include "sdk/msgapi/message_api.h"
 #include "sdk/msgapi/message_wwiv.h"
@@ -52,7 +51,7 @@ public:
 
 private:
   subfile_header_t header_{};
-  bool initialized_ = true;
+  bool initialized_{true};
 };
 
 class WWIVMessageAreaLastRead : public MessageAreaLastRead {
@@ -66,6 +65,14 @@ public:
 private:
   WWIVMessageApi* wapi_;
   int message_area_number_;
+};
+
+struct wwiv_parsed_text_fieds {
+  std::string from_username;
+  std::string date;
+  std::string to;
+  std::string in_reply_to;
+  std::string text;
 };
 
 class WWIVMessageArea final : public MessageArea, private Type2Text {
@@ -104,9 +111,7 @@ public:
 private:
   int DeleteExcess();
   [[nodiscard]] bool add_post(const postrec& post);
-  [[nodiscard]] bool ParseMessageText(const postrec& header, int message_number,
-                                      std::string& from_username, std::string& date,
-                                      std::string& to, std::string& in_reply_to, std::string& text);
+  [[nodiscard]] std::optional<wwiv_parsed_text_fieds> ParseMessageText(const postrec& header, int message_number);
   [[nodiscard]] [[nodiscard]] bool HasSubChanged() const;
   [[nodiscard]] bool ResyncMessageImpl(int& message_number, Message& message);
 
@@ -121,7 +126,6 @@ private:
   const std::filesystem::path sub_filename_;
   bool open_{false};
   subfile_header_t header_;
-  int subnum_{-1};
   std::unique_ptr<MessageAreaLastRead> last_read_;
 };
 

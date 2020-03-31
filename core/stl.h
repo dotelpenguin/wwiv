@@ -92,9 +92,14 @@ int8_t size_int8(C const& c) {
   return static_cast<int8_t>(size);
 }
 
-template <typename C>
-signed int size_int(const C& c) {
-  return stl::size_int32(c);
+// From https://en.cppreference.com/w/cpp/iterator/size (The C++20 version)
+template <class C>
+constexpr auto ssize(const C& c) 
+    -> std::common_type_t<std::ptrdiff_t,
+                          std::make_signed_t<decltype(c.size())>> 
+{
+    using R = std::common_type_t<std::ptrdiff_t, std::make_signed_t<decltype(c.size())>>;
+    return static_cast<R>(c.size());
 }
 
 template <typename C, typename S = std::size_t, typename R>

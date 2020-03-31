@@ -44,7 +44,7 @@ public:
   virtual void ShowHelpItems(int line, const std::vector<HelpItem>& help_items) const;
   virtual void ShowContextHelp(const std::string& help_text) const;
   virtual void SetDefaultFooter() const;
-  virtual CursesWindow* window() const { return window_.get(); }
+  [[nodiscard]] virtual CursesWindow* window() const { return window_.get(); }
 
  private:
    std::unique_ptr<CursesWindow> window_;
@@ -60,18 +60,18 @@ class CursesIO final {
   ~CursesIO();
 
   void Cls(uint32_t background_char = ' ');
-  CursesWindow* window() const { return window_.get(); }
-  CursesFooter* footer() const { return footer_.get(); }
-  CursesWindow* header() const { return header_.get(); }
+  [[nodiscard]] CursesWindow* window() const { return window_.get(); }
+  [[nodiscard]] CursesFooter* footer() const { return footer_.get(); }
+  [[nodiscard]] CursesWindow* header() const { return header_.get(); }
   void SetIndicatorMode(IndicatorMode mode);
 
   CursesWindow* CreateBoxedWindow(const std::string& title, int nlines, int ncols);
 
-  ColorScheme* color_scheme() const { return color_scheme_.get(); }
+  [[nodiscard]] ColorScheme* color_scheme() const { return color_scheme_.get(); }
   static void Init(const std::string& title);
   static CursesIO* Get();
-  int GetMaxX() const;
-  int GetMaxY() const;
+  [[nodiscard]] int GetMaxX() const;
+  [[nodiscard]] int GetMaxY() const;
 
  private:
   int max_x_;
@@ -83,6 +83,6 @@ class CursesIO final {
   std::unique_ptr<ColorScheme> color_scheme_;
 };
 
-extern CursesIO* out;
+extern CursesIO* curses_out;
 
 #endif // __INCLUDED_PLATFORM_CURSES_IO_H__

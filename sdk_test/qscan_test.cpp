@@ -18,18 +18,14 @@
 /**************************************************************************/
 #include "gtest/gtest.h"
 
-#include <memory>
-#include <string>
-#include <vector>
-
-#include "core/file.h"
 #include "core/strings.h"
 #include "sdk/config.h"
 #include "sdk/qscan.h"
 #include "sdk_test/sdk_helper.h"
+#include <vector>
+#include "core/stl.h"
 
 using namespace std;
-
 using namespace wwiv::sdk;
 using namespace wwiv::strings;
 
@@ -39,8 +35,7 @@ public:
     EXPECT_TRUE(config_.IsInitialized());
   }
 
-  virtual void SetUp() {
-    config_.IsInitialized();
+  void SetUp() override {
   }
 
   SdkHelper helper;
@@ -48,15 +43,15 @@ public:
 };
 
 TEST_F(QScanTest, Smoke) {
-  const auto max_subs = 8;
-  const auto max_dirs = 10;
+  const size_t max_subs = 8u;
+  const size_t max_dirs = 10u;
   uint32_t q[100];
   memset(q, 0, sizeof(q));
   *q = 999;
   RawUserQScan qscan(&q[0], calculate_qscan_length(max_subs, max_dirs), max_subs, max_dirs);
-  ASSERT_EQ(999, *qscan.qsc());
-  ASSERT_EQ(max_subs, qscan.subs().max_size());
-  ASSERT_EQ(max_dirs, qscan.dirs().max_size());
+  ASSERT_EQ(999u, *qscan.qsc());
+  ASSERT_EQ(max_subs, qscan.subs().size());
+  ASSERT_EQ(max_dirs, qscan.dirs().size());
 }
 
 TEST_F(QScanTest, Dirs_Smoke) {
@@ -76,8 +71,8 @@ TEST_F(QScanTest, Dirs_Smoke) {
   ASSERT_TRUE(x.test(1));
   ASSERT_TRUE(x.test(3));
 
-  ASSERT_EQ(10, qscan.qsc()[1]);
-  ASSERT_EQ(max_dirs, x.max_size());
+  ASSERT_EQ(10u, qscan.qsc()[1]);
+  ASSERT_EQ(static_cast<unsigned>(max_dirs), x.size());
 }
 
 TEST_F(QScanTest, Subs_Smoke) {
@@ -97,9 +92,9 @@ TEST_F(QScanTest, Subs_Smoke) {
   ASSERT_TRUE(x.test(1));
   ASSERT_TRUE(x.test(3));
 
-  ASSERT_EQ(10, qscan.qsc()[2]);
+  ASSERT_EQ(10u, qscan.qsc()[2]);
 
-  ASSERT_EQ(max_subs, x.max_size());
+  ASSERT_EQ(max_subs, wwiv::stl::ssize(x));
 }
 
 TEST_F(QScanTest, BitSet) {
@@ -107,7 +102,7 @@ TEST_F(QScanTest, BitSet) {
   qscan_bitset b(data, 64);
 
   b.set(32);
-  ASSERT_EQ(1, data[1]);
+  ASSERT_EQ(1u, data[1]);
   ASSERT_TRUE(b.test(32));
   b.reset(32);
   ASSERT_FALSE(b.test(32));

@@ -17,20 +17,17 @@
 /*                                                                        */
 /**************************************************************************/
 
-#include <iomanip>
-#include <iostream>
-#include <memory>
-#include <string>
-
+#include "bbs/menusupp.h"
 #include "bbs/attach.h"
 #include "bbs/automsg.h"
 #include "bbs/basic.h"
 #include "bbs/batch.h"
+#include "bbs/bbs.h"
 #include "bbs/bbsovl1.h"
-#include "bbs/bbsovl2.h"
+#include "bbs/bbsutl.h"
 #include "bbs/bbsutl1.h"
-#include "bbs/chat.h"
 #include "bbs/chains.h"
+#include "bbs/chat.h"
 #include "bbs/chnedit.h"
 #include "bbs/com.h"
 #include "bbs/conf.h"
@@ -45,53 +42,49 @@
 #include "bbs/finduser.h"
 #include "bbs/gfileedit.h"
 #include "bbs/gfiles.h"
-#include "bbs/input.h"
 #include "bbs/inetmsg.h"
+#include "bbs/input.h"
 #include "bbs/instmsg.h"
-#include "local_io/keycodes.h"
 #include "bbs/listplus.h"
 #include "bbs/menu.h"
-#include "bbs/menusupp.h"
-#include "bbs/message_file.h"
 #include "bbs/misccmd.h"
 #include "bbs/msgbase1.h"
 #include "bbs/multinst.h"
 #include "bbs/multmail.h"
 #include "bbs/netsup.h"
 #include "bbs/newuser.h"
-#include "bbs/quote.h"
 #include "bbs/pause.h"
+#include "bbs/printfile.h"
+#include "bbs/quote.h"
 #include "bbs/readmail.h"
 #include "bbs/stuffin.h"
 #include "bbs/subedit.h"
+#include "bbs/sysopf.h"
 #include "bbs/sysoplog.h"
+#include "bbs/utility.h"
 #include "bbs/valscan.h"
 #include "bbs/vote.h"
 #include "bbs/voteedit.h"
-#include "bbs/bbs.h"
-#include "bbs/bbsutl.h"
-#include "bbs/shortmsg.h"
-#include "bbs/sr.h"
-#include "bbs/subacc.h"
-#include "bbs/sysopf.h"
-#include "bbs/utility.h"
+#include "bbs/workspace.h"
 #include "bbs/wqscn.h"
 #include "bbs/xfer.h"
 #include "bbs/xferovl.h"
 #include "bbs/xferovl1.h"
 #include "bbs/xfertmp.h"
-
-#include "local_io/wconstants.h"
-#include "bbs/workspace.h"
-#include "bbs/printfile.h"
-#include "sdk/status.h"
 #include "core/os.h"
 #include "core/stl.h"
 #include "core/strings.h"
 #include "core/version.h"
+#include "fmt/format.h"
+#include "local_io/keycodes.h"
+#include "local_io/wconstants.h"
 #include "sdk/filenames.h"
+#include "sdk/status.h"
 #include "sdk/user.h"
 #include "sdk/usermanager.h"
+#include <iomanip>
+#include <memory>
+#include <string>
 
 using std::string;
 using wwiv::bbs::InputMode;
@@ -848,7 +841,7 @@ void UpDirConf() {
 }
 
 void UpDir() {
-  if (a()->current_user_dir_num() < size_int(a()->directories) - 1
+  if (a()->current_user_dir_num() < ssize(a()->directories) - 1
       && a()->udir[a()->current_user_dir_num() + 1].subnum >= 0) {
     a()->set_current_user_dir_num(a()->current_user_dir_num() + 1);
   } else {
@@ -875,7 +868,7 @@ void DownDir() {
     a()->set_current_user_dir_num(a()->current_user_dir_num() - 1);
   } else {
     while (a()->udir[a()->current_user_dir_num() + 1].subnum >= 0 &&
-           a()->current_user_dir_num() < size_int(a()->directories) - 1) {
+           a()->current_user_dir_num() < ssize(a()->directories) - 1) {
       a()->set_current_user_dir_num(a()->current_user_dir_num() + 1);
     }
   }

@@ -107,7 +107,7 @@ static void GetMessageTitle(MessageEditorData& data) {
     auto irt = a()->context().irt();
     if (!irt.empty() && irt.front() != '\xAB') {
       string s1;
-      char ch = '\0';
+      auto ch = '\0';
       irt = stripcolors(StringTrim(a()->context().irt()));
       if (strncasecmp(irt.c_str(), "re:", 3) != 0) {
         if (data.silent_mode) {
@@ -193,7 +193,7 @@ static bool InternalMessageEditor(vector<string>& lin, int maxli, int* setanon, 
       if (curli >= 0) {
         // Don't keep retreating past line 0.
         rollover_line = lin.at(curli);
-        if (size_int(rollover_line) > a()->user()->GetScreenChars() - 1) {
+        if (ssize(rollover_line) > a()->user()->GetScreenChars() - 1) {
           rollover_line.resize(a()->user()->GetScreenChars() - 2);
         }
       } else {
@@ -221,10 +221,10 @@ static bool InternalMessageEditor(vector<string>& lin, int maxli, int* setanon, 
           current_line = quoted_lines.front();
           quoted_lines.pop_front();
           bout.bpla(current_line, &abort);
-          if (curli == size_int(lin)) {
+          if (curli == ssize(lin)) {
             // we're inserting a new line at the end.
             lin.emplace_back(current_line);
-          } else if (curli < size_int(lin)) {
+          } else if (curli < ssize(lin)) {
             // replacing an older line.
             lin.at(curli).assign(current_line);
           }
@@ -323,10 +323,10 @@ static bool InternalMessageEditor(vector<string>& lin, int maxli, int* setanon, 
     }
 
     if (check_message_size) {
-      if (curli == size_int(lin)) {
+      if (curli == ssize(lin)) {
         // we're inserting a new line at the end.
         lin.emplace_back(current_line);
-      } else if (curli < size_int(lin)) {
+      } else if (curli < ssize(lin)) {
         // replacing an older line.
         lin.at(curli).assign(current_line);
       }
@@ -405,7 +405,7 @@ static std::filesystem::path FindTagFileName() {
 }
 
 static void UpdateMessageBufferTagLine(std::ostringstream& ss, bool is_email, const string& title, const string& to_name) {
-  if (a()->subs().subs().size() <= 0 && a()->GetCurrentReadMessageArea() <= 0) {
+  if (a()->subs().subs().empty() && a()->GetCurrentReadMessageArea() <= 0) {
     return;
   }
   if (is_email) {

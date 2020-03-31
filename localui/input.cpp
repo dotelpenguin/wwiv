@@ -32,7 +32,6 @@
 #include <vector>
 
 #include "local_io/keycodes.h"
-#include "local_io/wconstants.h"
 #include "core/file.h"
 #include "core/strings.h"
 #include "localui/curses_io.h"
@@ -73,7 +72,7 @@ EditlineResult CustomEditItem::Run(CursesWindow* window) {
 
 void CustomEditItem::Display(CursesWindow* window) const {
   window->GotoXY(x_, y_);
-  string blanks(maxsize_, ' ');
+  const string blanks(maxsize_, ' ');
   window->Puts(blanks.c_str());
 
   string s = to_field_();
@@ -86,18 +85,18 @@ void CustomEditItem::Display(CursesWindow* window) const {
 
 void EditItems::Run(const std::string& title) {
   if (!window_) {
-    out->Cls(ACS_CKBOARD);
+    curses_out->Cls(ACS_CKBOARD);
     create_window(title);
   }
   edit_mode_ = true;
-  int cp = 0;
+  auto cp = 0;
   const auto size = static_cast<int>(items_.size());
   Display();
   for (;;) {
     const auto* item = items_[cp];
-    out->footer()->ShowContextHelp(item->help_text());
+    curses_out->footer()->ShowContextHelp(item->help_text());
     auto i1 = items_[cp]->Run(window_.get());
-    out->footer()->SetDefaultFooter();
+    curses_out->footer()->SetDefaultFooter();
     if (i1 == EditlineResult::PREV) {
       if (--cp < 0) {
         cp = size - 1;
@@ -107,7 +106,7 @@ void EditItems::Run(const std::string& title) {
         cp = 0;
       }
     } else if (i1 == EditlineResult::DONE) {
-      out->SetIndicatorMode(IndicatorMode::NONE);
+      curses_out->SetIndicatorMode(IndicatorMode::NONE);
       edit_mode_ = false;
       Display();
       return;
@@ -118,12 +117,12 @@ void EditItems::Run(const std::string& title) {
 void EditItems::Display() const {
   // Show help bar.
   if (edit_mode_) {
-    out->footer()->window()->Move(1, 0);
-    out->footer()->window()->ClrtoEol();
-    out->footer()->ShowHelpItems(0, editor_help_items_);
+    curses_out->footer()->window()->Move(1, 0);
+    curses_out->footer()->window()->ClrtoEol();
+    curses_out->footer()->ShowHelpItems(0, editor_help_items_);
   } else {
-    out->footer()->ShowHelpItems(0, navigation_help_items_);
-    out->footer()->ShowHelpItems(1, navigation_extra_help_items_);
+    curses_out->footer()->ShowHelpItems(0, navigation_help_items_);
+    curses_out->footer()->ShowHelpItems(1, navigation_extra_help_items_);
   }
 
   window_->SetColor(SchemeId::NORMAL);
@@ -167,7 +166,7 @@ BaseEditItem* EditItems::add(Label* label, BaseEditItem* item) {
 
 void EditItems::create_window(const std::string& title) {
   window_ = std::unique_ptr<CursesWindow>(
-      out->CreateBoxedWindow(title, max_display_height(), max_display_width()));
+      curses_out->CreateBoxedWindow(title, max_display_height(), max_display_width()));
 }
 
 EditItems::~EditItems() {
@@ -184,9 +183,9 @@ EditItems::~EditItems() {
   labels_.clear();
 
   // Clear the help bar on exit.
-  out->footer()->window()->Erase();
-  out->footer()->window()->Refresh();
-  out->SetIndicatorMode(IndicatorMode::NONE);
+  curses_out->footer()->window()->Erase();
+  curses_out->footer()->window()->Refresh();
+  curses_out->SetIndicatorMode(IndicatorMode::NONE);
 }
 
 static UIWindow* CreateDialogWindow(UIWindow* parent, int height, int width) {
@@ -196,12 +195,12 @@ static UIWindow* CreateDialogWindow(UIWindow* parent, int height, int width) {
   const int starty = (maxy - height - 2) / 2;
   UIWindow* dialog;
   if (parent->IsGUI()) {
-    dialog = new CursesWindow(static_cast<CursesWindow*>(parent), out->color_scheme(),
+    dialog = new CursesWindow(static_cast<CursesWindow*>(parent), curses_out->color_scheme(),
                               height + 2, width + 4, starty, startx);
   } else {
-    dialog = new StdioWindow(parent, out->color_scheme());
+    dialog = new StdioWindow(parent, curses_out->color_scheme());
   }
-  dialog->Bkgd(out->color_scheme()->GetAttributesForScheme(SchemeId::DIALOG_BOX));
+  dialog->Bkgd(curses_out->color_scheme()->GetAttributesForScheme(SchemeId::DIALOG_BOX));
   dialog->SetColor(SchemeId::DIALOG_BOX);
   dialog->Box(0, 0);
   return dialog;
@@ -288,7 +287,7 @@ static void winput_password(CursesWindow* dialog, string* output, int max_length
       break;
     default:
       if (ch > 31 && curpos < max_length) {
-        s[curpos++] = to_upper_case<char>(ch);
+        s[curpos++] = to_upper_case<char>(static_cast<char>(ch));
         dialog->Putch(ACS_DIAMOND);
       }
       break;
@@ -298,21 +297,21 @@ static void winput_password(CursesWindow* dialog, string* output, int max_length
 
 void input_password(CursesWindow* window, const string& prompt, const vector<string>& text,
                     string* output, int max_length) {
-  int maxlen = prompt.size() + max_length;
+  auto maxlen = wwiv::stl::ssize(prompt) + max_length;
   for (const auto& s : text) {
     maxlen = std::max<int>(maxlen, s.length());
   }
   CHECK(window->IsGUI()) << "input_password needs a GUI.";
   unique_ptr<CursesWindow> dialog(
-      static_cast<CursesWindow*>(CreateDialogWindow(window, text.size() + 2, maxlen)));
+      dynamic_cast<CursesWindow*>(CreateDialogWindow(window, wwiv::stl::ssize(text) + 2, maxlen)));
   dialog->SetColor(SchemeId::DIALOG_TEXT);
 
-  int curline = 1;
+  auto curline = 1;
   for (const auto& s : text) {
     dialog->PutsXY(2, curline++, s);
   }
   dialog->SetColor(SchemeId::DIALOG_PROMPT);
-  dialog->PutsXY(2, text.size() + 2, prompt);
+  dialog->PutsXY(2, wwiv::stl::ssize(text) + 2, prompt);
   dialog->Refresh();
   winput_password(dialog.get(), output, max_length);
 }
@@ -324,32 +323,32 @@ int messagebox(UIWindow* window, const string& text) {
 
 int messagebox(UIWindow* window, const vector<string>& text) {
   const string prompt = "Press Any Key";
-  int maxlen = prompt.length() + 2;
+  auto maxlen = wwiv::stl::ssize(prompt) + 2;
   for (const auto& s : text) {
     maxlen = std::max<int>(maxlen, s.length());
   }
-  unique_ptr<UIWindow> dialog(CreateDialogWindow(window, text.size() + 2, maxlen));
+  unique_ptr<UIWindow> dialog(CreateDialogWindow(window, wwiv::stl::ssize(text) + 2, maxlen));
   dialog->SetColor(SchemeId::DIALOG_TEXT);
-  int curline = 1;
+  auto curline = 1;
   for (const auto& s : text) {
     dialog->PutsXY(2, curline++, s);
   }
   dialog->SetColor(SchemeId::DIALOG_PROMPT);
-  int x = (maxlen - prompt.length()) / 2;
-  dialog->PutsXY(x + 2, text.size() + 2, prompt);
+  const int x = (maxlen - prompt.length()) / 2;
+  dialog->PutsXY(x + 2, wwiv::stl::ssize(text) + 2, prompt);
   dialog->Refresh();
   return dialog->GetChar();
 }
 
 std::string dialog_input_string(CursesWindow* window, const std::string& prompt,
                                 size_t max_length) {
-  unique_ptr<UIWindow> dialog(CreateDialogWindow(window, 3, prompt.size() + 4 + max_length));
+  unique_ptr<UIWindow> dialog(CreateDialogWindow(window, 3, wwiv::stl::ssize(prompt) + 4 + max_length));
   dialog->PutsXY(2, 2, prompt);
   dialog->Refresh();
 
   CHECK(window->IsGUI()) << "dialog_input_string needs a GUI.";
   string s;
-  editline(static_cast<CursesWindow*>(dialog.get()), &s, max_length, EditLineMode::ALL, "");
+  editline(dynamic_cast<CursesWindow*>(dialog.get()), &s, max_length, EditLineMode::ALL, "");
   return s;
 }
 
@@ -358,10 +357,10 @@ static int max_length_for_number(int64_t n) {
 }
 
 int dialog_input_number(CursesWindow* window, const string& prompt, int min_value, int max_value) {
-  int num_digits = max_length_for_number(max_value);
+  const auto num_digits = max_length_for_number(max_value);
   CHECK(window->IsGUI()) << "dialog_input_number needs a GUI.";
   unique_ptr<CursesWindow> dialog(
-      static_cast<CursesWindow*>(CreateDialogWindow(window, 3, prompt.size() + 4 + num_digits)));
+      dynamic_cast<CursesWindow*>(CreateDialogWindow(window, 3, wwiv::stl::ssize(prompt) + 4 + num_digits)));
   dialog->PutsXY(2, 2, prompt);
   dialog->Refresh();
 
@@ -385,7 +384,7 @@ int dialog_input_number(CursesWindow* window, const string& prompt, int min_valu
 char onek(CursesWindow* window, const char* pszKeys) {
   char ch = 0;
 
-  while (!strchr(pszKeys, ch = to_upper_case<char>(window->GetChar()))) {
+  while (!strchr(pszKeys, ch = to_upper_case<char>(static_cast<char>(window->GetChar())))) {
     // NOP
   }
   return ch;
@@ -405,8 +404,8 @@ static std::size_t editlinestrlen(char* text) {
 EditlineResult editline(CursesWindow* window, string* s, int len, EditLineMode status,
                          const char* ss) {
   char buffer[255];
-  wwiv::strings::to_char_array(buffer, *s);
-  auto rc = editline(window, buffer, len, status, ss);
+  to_char_array(buffer, *s);
+  const auto rc = editline(window, buffer, len, status, ss);
   s->assign(buffer);
   return rc;
 }
@@ -417,16 +416,16 @@ EditlineResult editline(CursesWindow* window, char* s, int len, EditLineMode sta
   uint32_t old_attr;
   short old_pair;
   window->AttrGet(&old_attr, &old_pair);
-  int cx = window->GetcurX();
-  int cy = window->GetcurY();
-  EditlineResult rc = EditlineResult::NEXT;
+  const auto cx = window->GetcurX();
+  const auto cy = window->GetcurY();
+  auto rc = EditlineResult::NEXT;
   for (int i = strlen(s); i < len; i++) {
     s[i] = static_cast<char>(background_character);
   }
   s[len] = '\0';
   window->SetColor(SchemeId::EDITLINE);
   window->Puts(s);
-  out->SetIndicatorMode(IndicatorMode::OVERWRITE);
+  curses_out->SetIndicatorMode(IndicatorMode::OVERWRITE);
   window->GotoXY(cx, cy);
   bool done = false;
   int pos = 0;
@@ -474,11 +473,11 @@ EditlineResult editline(CursesWindow* window, char* s, int len, EditLineMode sta
       if (status != EditLineMode::SET) {
         if (bInsert) {
           bInsert = false;
-          out->SetIndicatorMode(IndicatorMode::OVERWRITE);
+          curses_out->SetIndicatorMode(IndicatorMode::OVERWRITE);
           window->GotoXY(cx + pos, cy);
         } else {
           bInsert = true;
-          out->SetIndicatorMode(IndicatorMode::INSERT);
+          curses_out->SetIndicatorMode(IndicatorMode::INSERT);
           window->GotoXY(cx + pos, cy);
         }
       }
@@ -497,10 +496,10 @@ EditlineResult editline(CursesWindow* window, char* s, int len, EditLineMode sta
     default:
       if (ch > 31) {
         if (status == EditLineMode::UPPER_ONLY) {
-          ch = to_upper_case<char>(ch);
+          ch = to_upper_case<char>(static_cast<char>(ch));
         }
         if (status == EditLineMode::SET) {
-          ch = to_upper_case<char>(ch);
+          ch = to_upper_case<char>(static_cast<char>(ch));
           if (ch != ' ') {
             bool bLookingForSpace = true;
             for (int i = 0; i < len; i++) {

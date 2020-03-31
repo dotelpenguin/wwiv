@@ -32,6 +32,7 @@
 #include "core/os.h"
 #include "core/stl.h"
 #include "core/strings.h"
+#include "fmt/printf.h"
 #include "local_io/keycodes.h"
 #include <algorithm>
 #include <chrono>
@@ -212,8 +213,8 @@ char* stripfn(const char* file_name) {
   static char szStaticFileName[15];
   char szTempFileName[MAX_PATH];
 
-  size_t nSepIndex = -1;
-  for (size_t i = 0; i < size(file_name); i++) {
+  int nSepIndex = -1;
+  for (auto i = 0; i < ssize(file_name); i++) {
     if (file_name[i] == '\\' || file_name[i] == ':' || file_name[i] == '/') {
       nSepIndex = i;
     }
@@ -223,12 +224,12 @@ char* stripfn(const char* file_name) {
   } else {
     strcpy(szTempFileName, file_name);
   }
-  for (size_t i1 = 0; i1 < size(szTempFileName); i1++) {
+  for (auto i1 = 0; i1 < ssize(szTempFileName); i1++) {
     if (szTempFileName[i1] >= 'A' && szTempFileName[i1] <= 'Z') {
       szTempFileName[i1] = szTempFileName[i1] - 'A' + 'a';
     }
   }
-  int j = 0;
+  auto j = 0;
   while (szTempFileName[j] != 0) {
     if (szTempFileName[j] == SPACE) {
       strcpy(&szTempFileName[j], &szTempFileName[j + 1]);
@@ -243,8 +244,7 @@ char* stripfn(const char* file_name) {
 void stripfn_inplace(char* file_name) { strcpy(file_name, stripfn(file_name)); }
 
 char* get_wildlist(char* file_mask) {
-  int mark = 0;
-  char *pszPath, t;
+  auto mark = 0;
 
   FindFiles ff(file_mask, FindFilesType::any);
   if (ff.empty()) {
@@ -258,19 +258,19 @@ char* get_wildlist(char* file_mask) {
   if (strchr(file_mask, File::pathSeparatorChar) == nullptr) {
     file_mask[0] = '\0';
   } else {
-    for (int i = 0; i < size_int(file_mask); i++) {
+    for (int i = 0; i < ssize(file_mask); i++) {
       if (file_mask[i] == File::pathSeparatorChar) {
         mark = i + 1;
       }
     }
   }
-  t = file_mask[mark];
+  auto t = file_mask[mark];
   file_mask[mark] = 0;
-  pszPath = file_mask;
+  auto* pszPath = file_mask;
   file_mask[mark] = t;
   t = static_cast<char>(size(pszPath));
   strcat(pszPath, f->name.c_str());
-  int i = 1;
+  auto i = 1;
   for (i = 1;; i++) {
     if (i % 5 == 0) {
       bout.nl();
@@ -278,7 +278,7 @@ char* get_wildlist(char* file_mask) {
     if (f == ff.end()) {
       break;
     }
-    f++;
+    ++f;
     bout << fmt::sprintf("%12.12s ", f->name);
     if (bout.getkey() == SPACE) {
       bout.nl();
@@ -415,7 +415,7 @@ int side_menu(int* menu_pos, bool bNeedsRedraw, const vector<string>& menu_items
 
 bool okfsed() {
   return okansi() && a()->user()->GetDefaultEditor() > 0 &&
-         a()->user()->GetDefaultEditor() <= wwiv::stl::size_int(a()->editors);
+         a()->user()->GetDefaultEditor() <= wwiv::stl::ssize(a()->editors);
 }
 template <class _Ty>
 inline const _Ty& in_range(const _Ty& minValue, const _Ty& maxValue, const _Ty& value) {

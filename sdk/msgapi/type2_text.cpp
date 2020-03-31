@@ -87,10 +87,11 @@ std::optional<File> Type2Text::OpenMessageFile() const {
   return message_file;
 }
 
+// ReSharper disable once CppMemberFunctionMayBeStatic
 std::vector<gati_t> Type2Text::load_gat(File& file, int section) {
   std::vector<gati_t> gat(GAT_NUMBER_ELEMENTS);
   auto file_size = file.length();
-  auto section_pos = static_cast<File::size_type>(section * GATSECLEN);
+  const auto section_pos = static_cast<File::size_type>(section * static_cast<File::size_type>(GATSECLEN));
   if (file_size < section_pos) {
     file.set_length(section_pos);
     file_size = section_pos;
@@ -172,13 +173,13 @@ std::optional<messagerec> Type2Text::savefile(const string& text) {
     const auto nNumBlocksRequired = static_cast<int>((text.length() + MSG_BLOCK_SIZE - 1) / MSG_BLOCK_SIZE);
     gati_t i4 = 1;
     gati.clear();
-    while (size_int(gati) < nNumBlocksRequired && i4 < GAT_NUMBER_ELEMENTS) {
+    while (ssize(gati) < nNumBlocksRequired && i4 < GAT_NUMBER_ELEMENTS) {
       if (gat[i4] == 0) {
         gati.push_back(i4);
       }
       ++i4;
     }
-    if (size_int(gati) >= nNumBlocksRequired) {
+    if (ssize(gati) >= nNumBlocksRequired) {
       gati.push_back(-1);
       for (auto i = 0; i < nNumBlocksRequired; i++) {
         msgfile->Seek(MSG_STARTING(section) + MSG_BLOCK_SIZE * static_cast<long>(gati[i]), File::Whence::begin);

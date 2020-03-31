@@ -19,9 +19,7 @@
 
 #include "bbs/xfer.h"
 #include "bbs/bbs.h"
-#include "bbs/bbsovl3.h"
 #include "bbs/bbsutl.h"
-#include "bbs/bbsutl2.h"
 #include "bbs/bgetch.h"
 #include "bbs/com.h"
 #include "bbs/conf.h"
@@ -35,11 +33,10 @@
 #include "bbs/sysoplog.h"
 #include "bbs/utility.h"
 #include "bbs/xfer_common.h"
-#include "bbs/xferovl.h"
 #include "bbs/xferovl1.h"
-#include "bbs/xfertmp.h"
 #include "core/stl.h"
 #include "core/strings.h"
+#include "fmt/printf.h"
 #include "local_io/keycodes.h"
 #include "local_io/wconstants.h"
 #include "sdk/config.h"
@@ -649,7 +646,7 @@ void printinfo(uploadsrec * u, bool *abort) {
       to_char_array(s1, "N/A");
     }
   }
-  for (i = 0; i < 5 - wwiv::strings::size_int(s1); i++) {
+  for (i = 0; i < 5 - wwiv::strings::ssize(s1); i++) {
     s[i] = SPACE;
   }
   s[i] = '\0';
@@ -662,7 +659,7 @@ void printinfo(uploadsrec * u, bool *abort) {
     bout.bputs((okansi() ? "\xBA" : " "), abort, &next); // was |
     sprintf(s1, "%d", u->numdloads);
 
-    for (i = 0; i < 4 - wwiv::strings::size_int(s1); i++) {
+    for (i = 0; i < 4 - wwiv::strings::ssize(s1); i++) {
       s[i] = SPACE;
     }
     s[i] = '\0';

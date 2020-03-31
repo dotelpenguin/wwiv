@@ -337,16 +337,6 @@ std::string JoinStrings(const std::vector<std::string>& lines, const std::string
   return out;
 }
 
-std::string put_time(const struct tm* tm_info, const std::string& fmt_arg) {
-  char buffer[1024];
-
-  const auto num = strftime(buffer, sizeof(buffer), fmt_arg.c_str(), tm_info);
-  if (num == 0) {
-    return {};
-  }
-  return string(buffer);
-}
-
 std::string::size_type size_without_colors(const std::string& s) {
   const auto stripped = stripcolors(s);
   return stripped.size();
@@ -380,7 +370,7 @@ std::string::size_type size(const char* s) {
 }
 
 // String length without colors as an int
-int size_int(const char* s) { return static_cast<int>(size(s)); }
+int ssize(const char* s) { return static_cast<int>(size(s)); }
 
 
 std::string trim_to_size(const std::string& orig, std::string::size_type max_size) {
@@ -499,7 +489,7 @@ void properize(char* text) {
     return;
   }
 
-  for (auto i = 0; i < wwiv::strings::size_int(text); i++) {
+  for (auto i = 0; i < wwiv::strings::ssize(text); i++) {
     if ((i == 0) || ((i > 0) && ((text[i - 1] == ' ') || (text[i - 1] == '-') ||
                                  (text[i - 1] == '.')))) {
       text[i] = wwiv::strings::to_upper_case<char>(text[i]);

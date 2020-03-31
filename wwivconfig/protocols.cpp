@@ -55,7 +55,7 @@ static std::string prot_name(const vector<newexternalrec>& externs, int pn) {
   case 5:
     return "Batch";
   default:
-    if (pn > 5 || pn < (size_int(externs) + 6)) {
+    if (pn > 5 || pn < (ssize(externs) + 6)) {
       return externs[pn - 6].description;
     }
   }
@@ -128,7 +128,7 @@ static void edit_prot(vector<newexternalrec>& externs, vector<newexternalrec>& o
       new CommandLineItem(2, 4, 70, c.receivefn),
       new CommandLineItem(2, 6, 70, c.sendfn),
   });
-  out->Cls(ACS_CKBOARD);
+  curses_out->Cls(ACS_CKBOARD);
   items.create_window("Protocol Configuration");
   if (n < 6) {
     items.items().erase(items.items().begin());
@@ -166,7 +166,7 @@ void extrn_prots(const std::string& datadir) {
 
   bool done = false;
   do {
-    out->Cls(ACS_CKBOARD);
+    curses_out->Cls(ACS_CKBOARD);
     vector<ListBoxItem> items;
     items.emplace_back("2. XModem (Internal)", 0, 2);
     items.emplace_back("X. XModem CRC (Internal)", 0, 3);
@@ -174,21 +174,21 @@ void extrn_prots(const std::string& datadir) {
     for (size_t i = 0; i < externs.size(); i++) {
       items.emplace_back(fmt::format("{}. {} (External)", i + 6, prot_name(externs, i+6)), 0, i+6);
     }
-    CursesWindow* window(out->window());
+    CursesWindow* window(curses_out->window());
     ListBox list(window, "Select Protocol", items);
 
     list.selection_returns_hotkey(true);
     list.set_additional_hotkeys("DI");
     list.set_help_items({{"Esc", "Exit"}, {"Enter", "Edit"}, {"D", "Delete"}, {"I", "Insert"} });
     auto result = list.Run();
-    const int max_protocol_number = size_int(externs) -1 + 6;
+    const int max_protocol_number = ssize(externs) -1 + 6;
 
     if (result.type == ListBoxResultType::HOTKEY) {
       switch (result.hotkey) {
       case 'D': {
         if (!externs.empty()) {
           if (items[result.selected].data() < 6) {
-            messagebox(out->window(), "You can only delete external protocols.");
+            messagebox(curses_out->window(), "You can only delete external protocols.");
             break;
           }
           auto prompt = fmt::format("Delete '{}' ?", items[result.selected].text());
@@ -202,11 +202,11 @@ void extrn_prots(const std::string& datadir) {
       } break;
       case 'I': {
         if (externs.size() >= 15) {
-          messagebox(out->window(), "Too many external protocols.");
+          messagebox(curses_out->window(), "Too many external protocols.");
           break;
         }
         string prompt = fmt::format("Insert before which (6-{}) ? ", max_protocol_number + 1);
-        size_t pos = dialog_input_number(out->window(), prompt, 2, max_protocol_number + 1);
+        size_t pos = dialog_input_number(curses_out->window(), prompt, 2, max_protocol_number + 1);
         if (pos >= 6 && pos <= externs.size() + 6) {
           size_t extern_pos = pos - 6;
           newexternalrec e{};
@@ -218,7 +218,7 @@ void extrn_prots(const std::string& datadir) {
           }
           edit_prot(externs, over_interns, pos);
         } else {
-          messagebox(out->window(), fmt::format("Invalid entry: {}", pos));
+          messagebox(curses_out->window(), fmt::format("Invalid entry: {}", pos));
         }
       } break;
       }

@@ -20,7 +20,9 @@
 #define __INCLUDED_STRINGS_H__
 
 #include <cstdint>
+// ReSharper disable once CppUnusedIncludeDirective
 #include <cstring> // strncpy
+// ReSharper disable once CppUnusedIncludeDirective
 #include <ctime>   // struct tm
 #include <functional>
 #include <limits>
@@ -39,19 +41,19 @@ namespace strings {
 enum class JustificationType { LEFT, RIGHT };
 
 template <typename A> std::string StrCat(const A& a) noexcept {
-  std::ostringstream ss;
-  ss << a;
   try {
+    std::ostringstream ss;
+    ss << a;
     return ss.str();
   } catch (...) {
     return {};
   }
 }
 
-template <typename A, typename... Args> std::string StrCat(const A& a, const Args&... args) {
-  std::ostringstream ss;
-  ss << a << StrCat(args...);
+template <typename A, typename... Args> std::string StrCat(const A& a, const Args&... args) noexcept {
   try {
+    std::ostringstream ss;
+    ss << a << StrCat(args...);
     return ss.str();
   } catch (...) {
     return {};
@@ -132,13 +134,6 @@ template <typename A, typename... Args> std::string StrCat(const A& a, const Arg
    */
   std::string JoinStrings(const std::vector<std::string>& lines, const std::string& end_of_line);
 
-  // Time and STL things to come in C++14 or GCC5
-
-  /**
-   * Like std::put_time.  GCC 4.x doesn't support it.
-   */
-  std::string put_time(const struct tm* tm_info, const std::string& fmt_arg);
-
   // String length without colors
   std::string::size_type size_without_colors(const std::string& s);
 
@@ -157,16 +152,26 @@ template <typename A, typename... Args> std::string StrCat(const A& a, const Arg
   std::string::size_type size(const char* s);
 
   // String length without colors as an int
-  int size_int(const char* s);
+  int ssize(const char* s);
 
   /** returns a copy of orig trimmed to size, excluding colors. */
   std::string trim_to_size(const std::string& orig, std::string::size_type size);
 
   /** Typesafe version of toupper */
-  template <class T> T to_upper_case(const T a) { return static_cast<T>(::toupper(a)); }
+  template<class T, typename = std::enable_if_t<std::is_convertible_v<T, char>, char>>
+  T to_upper_case(const T a) { return static_cast<T>(::toupper(a)); }
 
-  /** Typesafe version of tolower */
-  template <class T> T to_lower_case(const T a) { return static_cast<T>(::tolower(a)); }
+  template<class T>
+  std::enable_if_t<std::is_convertible_v<T, char>, char>
+  to_upper_case_char(const T a) { return static_cast<T>(::toupper(a)); }
+
+  /** Typesafe version of toupper */
+  template<class T, typename = std::enable_if_t<std::is_convertible_v<T, char>, char>>
+  T to_lower_case(const T a) { return static_cast<T>(::tolower(a)); }
+
+  template<class T>
+  std::enable_if_t<std::is_convertible_v<T, char>, char>
+  to_lower_case_char(const T a) { return static_cast<T>(::tolower(a)); }
 
   template <typename T, typename R>
   static T StringToT(std::function<R(const std::string&, int)> f, const std::string& s, int b) {

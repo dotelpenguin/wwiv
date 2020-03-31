@@ -1,7 +1,7 @@
 /**************************************************************************/
 /*                                                                        */
-/*                            WWIV Version 5                              */
-/*             Copyright (C)2018-2020, WWIV Software Services             */
+/*                              WWIV Version 5.x                          */
+/*             Copyright (C)1998-2020, WWIV Software Services             */
 /*                                                                        */
 /*    Licensed  under the  Apache License, Version  2.0 (the "License");  */
 /*    you may not use this  file  except in compliance with the License.  */
@@ -14,29 +14,13 @@
 /*    "AS IS"  BASIS, WITHOUT  WARRANTIES  OR  CONDITIONS OF ANY  KIND,   */
 /*    either  express  or implied.  See  the  License for  the specific   */
 /*    language governing permissions and limitations under the License.   */
+/*                                                                        */
 /**************************************************************************/
-#include "sdk/ansi/localio_screen.h"
-
-#include "core/stl.h"
-#include "local_io/curatr_provider.h"
-
-using namespace wwiv::stl;
-
-namespace wwiv::sdk::ansi {
-
-class LocalIOScreenCurAttrProvider : public wwiv::local_io::curatr_provider {
-public:
-  LocalIOScreenCurAttrProvider(LocalIO* lio) : lio_(lio) {}
-  [[nodiscard]] uint8_t curatr() const noexcept override { return lio_->curatr(); }
-  void curatr(uint8_t n) override { lio_->curatr(n); }
-
-private:
-  LocalIO* lio_;
-};
+#ifndef __INCLUDED_STRINGS_NG_H__
+#define __INCLUDED_STRINGS_NG_H__
+#include <cctype>
+#include <type_traits>
 
 
-LocalIOScreen::LocalIOScreen(LocalIO* io, int cols)
-    : VScreen(), io_(io), cols_(cols),
-      curatr_provider_(std::make_unique<LocalIOScreenCurAttrProvider>(io)) {}
 
-} // namespace wwiv
+#endif  // __INCLUDED_STRINGS_NG_H__

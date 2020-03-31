@@ -157,7 +157,7 @@ int WWIVEmail::number_of_messages() {
   return count;
 }
 
-int WWIVEmail::number_of_email_records() {
+int WWIVEmail::number_of_email_records() const {
   if (!open_ || !mail_file_) {
     return 0;
   }
@@ -257,7 +257,7 @@ bool WWIVEmail::DeleteAllMailToOrFrom(int user_number) {
     // WTF
     return false;
   }
-  for (auto i = 0; i < size_int(headers); i++) {
+  for (auto i = 0; i < ssize(headers); i++) {
     const auto& m = headers.at(i);
     if ((m.tosys == 0 && m.touser == user_number) || (m.fromsys == 0 && m.fromuser == user_number)) {
       DeleteMessage(i);
