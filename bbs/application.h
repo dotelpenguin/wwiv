@@ -447,6 +447,13 @@ private:
 
   // Private fields.
 private:
+  // Constructor parameters
+
+  std::unique_ptr<LocalIO> local_io_;
+  int oklevel_;
+  int errorlevel_;
+  wwiv::bbs::SessionContext session_context_;
+
   /*!
    * The current working directory.
    * Please note that bbs_dir_string_ must be updated along with bbs_dir_. This is so we can
@@ -459,8 +466,6 @@ private:
   std::string logdir_;
   int verbose_{0};
 
-  int oklevel_;
-  int errorlevel_;
   int instance_number_{-1};
   std::string network_extension_;
   bool user_already_on_{false};
@@ -474,7 +479,6 @@ private:
   std::unique_ptr<wwiv::sdk::User> thisuser_;
   int effective_sl_{0};
   std::unique_ptr<RemoteIO> comm_;
-  std::unique_ptr<LocalIO> local_io_;
   std::string current_speed_;
   std::unique_ptr<wwiv::sdk::Config> config_;
   std::unique_ptr<wwiv::sdk::Names> names_;
@@ -482,7 +486,6 @@ private:
 
   Batch batch_;
   std::unique_ptr<wwiv::sdk::Subs> subs_;
-  wwiv::bbs::SessionContext session_context_;
 
   // Former global variables and system_operation_rec members to be moved
   uint32_t flags_{0};

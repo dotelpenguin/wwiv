@@ -105,10 +105,10 @@ void qwk_remove_email() {
     return;
   }
 
-  auto mfl = f->length() / sizeof(mailrec);
+  const auto mfl = f->length() / sizeof(mailrec);
   uint8_t mw = 0;
 
-  mailrec m;
+  mailrec m{};
   for (unsigned long i = 0; (i < mfl) && (mw < MAXMAIL); i++) {
     f->Seek(i * sizeof(mailrec), File::Whence::begin);
     f->Read(&m, sizeof(mailrec));
@@ -142,27 +142,27 @@ void qwk_remove_email() {
 }
 
 void qwk_gather_email(struct qwk_junk* qwk_info) {
-  int i, mfl, curmail;
+  int i, curmail;
   bool done = false;
   char filename[201];
-  mailrec m;
-  postrec junk;
+  mailrec m{};
+  postrec junk{};
 
   a()->emchg_ = false;
   std::vector<tmpmailrec> mloc;
 
   const auto ss = a()->effective_slrec();
-  std::unique_ptr<File> f(OpenEmailFile(false));
+  auto f(OpenEmailFile(false));
   if (!f->IsOpen()) {
     bout.nl(2);
     bout.bputs("No mail file exists!");
     bout.nl();
     return;
   }
-  mfl = f->length() / sizeof(mailrec);
+  const int mfl = f->length() / sizeof(mailrec);
   uint8_t mw = 0;
   for (i = 0; (i < mfl) && (mw < MAXMAIL); i++) {
-    f->Seek(((long)(i)) * (sizeof(mailrec)), File::Whence::begin);
+    f->Seek(static_cast<long>(i) * (sizeof(mailrec)), File::Whence::begin);
     f->Read(&m, sizeof(mailrec));
     if ((m.tosys == 0) && (m.touser == a()->usernum)) {
       tmpmailrec r = {};
@@ -188,12 +188,8 @@ void qwk_gather_email(struct qwk_junk* qwk_info) {
   bout.Color(7);
   bout.bputs("Gathering Email");
 
-  if (mw == 1) {
-    curmail = 0;
-  }
-
   curmail = 0;
-  done = 0;
+  done = false;
 
   qwk_info->in_email = 1;
 
@@ -232,7 +228,7 @@ void qwk_gather_email(struct qwk_junk* qwk_info) {
 
     ++curmail;
     if (curmail >= mw) {
-      done = 1;
+      done = true;
     }
 
   } while ((!a()->hangup_) && (!done));
@@ -266,7 +262,7 @@ int select_qwk_archiver(struct qwk_junk* qwk_info, int ask) {
     }
   }
   bout.nl();
-  bout << fmt::sprintf("Enter #  Q to Quit <CR>=1 :");
+  bout << "Enter #  Q to Quit <CR>=1 :";
 
   if (ask) {
     strcat(allowed, "0");
@@ -318,67 +314,35 @@ string qwk_which_protocol() {
   }
 }
 
-void upload_reply_packet() {
-  char name[21], namepath[101];
-  bool rec = true;
-  int save_conf = 0;
-  qwk_config qwk_cfg{};
-
-  read_qwk_cfg(&qwk_cfg);
-
-  if (!qwk_cfg.fu) {
-    qwk_cfg.fu = daten_t_now();
+static void qwk_receive_file(const std::string& fn, bool* received, int i) {
+  if ((i <= 1) || (i == 5)) {
+    i = get_protocol(xf_up_temp);
   }
 
-  ++qwk_cfg.timesu;
-  write_qwk_cfg(&qwk_cfg);
-  close_qwk_cfg(&qwk_cfg);
-
-  auto save_sub = a()->current_user_sub_num();
-  if ((a()->uconfsub[1].confnum != -1) && (okconf(a()->user()))) {
-    save_conf = 1;
-    tmp_disable_conf(true);
-  }
-
-  qwk_system_name(name);
-  strcat(name, ".REP");
-
-  bout << fmt::sprintf("Hit 'Y' to upload reply packet %s :", name);
-
-  sprintf(namepath, "%s%s", QWK_DIRECTORY, name);
-
-  bool do_it = yesno();
-
-  if (do_it) {
+  switch (i) {
+  case -1:
+  case 0:
+  case WWIV_INTERNAL_PROT_ASCII:
+  case WWIV_INTERNAL_PROT_BATCH:
+    *received = false;
+    break;
+  case WWIV_INTERNAL_PROT_XMODEM:
+  case WWIV_INTERNAL_PROT_XMODEMCRC:
+  case WWIV_INTERNAL_PROT_YMODEM:
+  case WWIV_INTERNAL_PROT_ZMODEM:
+    maybe_internal(fn, received, nullptr, false, i);
+    break;
+  default:
     if (a()->context().incom()) {
-      qwk_receive_file(namepath, &rec, a()->user()->data.qwk_protocol);
-      sleep_for(milliseconds(500));
+      extern_prot(i - WWIV_NUM_INTERNAL_PROTOCOLS, fn, 0);
+      *received = File::Exists(fn);
     }
-
-    if (rec) {
-      qwk_system_name(name);
-      strcat(name, ".MSG");
-
-      ready_reply_packet(namepath, name);
-
-      sprintf(namepath, "%s%s", QWK_DIRECTORY, name);
-      process_reply_dat(namepath);
-    } else {
-      sysoplog() << "Aborted";
-      bout.nl();
-      bout << fmt::sprintf("%s not found", name);
-      bout.nl();
-    }
+    break;
   }
-  if (save_conf) {
-    tmp_disable_conf(false);
-  }
-
-  a()->set_current_user_sub_num(save_sub);
 }
 
-void ready_reply_packet(const char* packet_name, const char* msg_name) {
-  auto archiver = match_archiver(packet_name);
+static void ready_reply_packet(const std::string& packet_name, const std::string& msg_name) {
+  const auto archiver = match_archiver(packet_name.c_str());
   const auto command = stuff_in(a()->arcs[archiver].arce, packet_name, msg_name, "", "", "");
 
   File::set_current_directory(QWK_DIRECTORY);
@@ -401,23 +365,201 @@ static void make_text_ready(char* text, long len) {
   text[temp.size()] = 0;
 }
 
-std::unique_ptr<char[]> make_text_file(int filenumber, int curpos, int blocks) {
+static std::unique_ptr<char[]> make_text_file(int filenumber, int curpos, int blocks) {
   // This memory has to be freed later, after text is 'emailed' or 'posted'
   // Enough memory is allocated for all blocks, plus 2k extra for other
   // 'addline' stuff
-  unique_ptr<char[]> text = std::make_unique<char[]>(blocks * sizeof(qwk_junk) + 2048);
+  auto text = std::make_unique<char[]>(blocks * sizeof(qwk_junk) + 2048);
 
   SET_BLOCK(filenumber, curpos, sizeof(qwk_record));
   read(filenumber, text.get(), sizeof(qwk_record) * blocks);
 
   make_text_ready(text.get(), sizeof(qwk_record) * blocks);
 
-  size_t size = strlen(text.get());
+  auto size = strlen(text.get());
   while (isspace(text[size - 1]) && size) {
     --size;
   }
   text[size] = 0;
   return std::move(text);
+}
+
+static void process_reply_dat(const std::string& name) {
+  qwk_record qwk{};
+  int curpos = 0;
+  int done = 0;
+
+  int repfile = open(name.c_str(), O_RDONLY | O_BINARY);
+
+  if (repfile < 0) {
+    bout.nl();
+    bout.Color(3);
+    bout.bputs("Can't open packet.");
+    pausescr();
+    return;
+  }
+
+  SET_BLOCK(repfile, curpos, sizeof(struct qwk_record));
+  read(repfile, &qwk, sizeof(struct qwk_record));
+
+  // Should check to makesure first block contains our bbs id
+  ++curpos;
+
+  bout.cls();
+
+  while (!done && !a()->hangup_) {
+    int to_email = 0;
+
+    SET_BLOCK(repfile, curpos, sizeof(struct qwk_record));
+    ++curpos;
+
+    if (read(repfile, &qwk, sizeof(struct qwk_record)) < 1) {
+      done = 1;
+    } else {
+      char blocks[7];
+      char to[201];
+      char title[26];
+      char tosub[8];
+
+      strncpy(blocks, qwk.amount_blocks, 6);
+      blocks[6] = 0;
+
+      strncpy(tosub, qwk.msgnum, 7);
+      tosub[7] = 0;
+
+      strncpy(title, qwk.subject, 25);
+      title[25] = 0;
+
+      strncpy(to, qwk.to, 25);
+      to[25] = 0;
+      strupr(to);
+      StringTrim(to);
+
+      // If in sub 0 or not public, possibly route into email
+      if (to_number<int>(tosub) == 0) {
+        to_email = 1;
+      } else if (qwk.status != ' ' && qwk.status != '-') { // if not public
+        bout.cls();
+        bout.Color(1);
+        bout << fmt::sprintf("Message '2%s1' is marked 3PRIVATE", title);
+        bout.nl();
+        bout.Color(1);
+        bout << fmt::sprintf("It is addressed to 2%s", to);
+        bout.nl(2);
+        bout.Color(7);
+        bout << "Route into E-Mail?";
+        if (noyes()) {
+          to_email = 1;
+        }
+      }
+
+      std::unique_ptr<char[]> text(make_text_file(repfile, curpos, to_number<int>(blocks) - 1));
+      if (!text) {
+        curpos += to_number<int>(blocks) - 1;
+        continue;
+      }
+
+      if (to_email) {
+        char* temp;
+
+        if ((temp = strstr(text.get(), QWKFrom + 2)) != nullptr) {
+
+          temp += strlen(QWKFrom + 2); // Get past 'QWKFrom:'
+          char* s = strchr(temp, '\r');
+
+          if (s) {
+
+            s[0] = 0;
+
+            StringTrim(temp);
+            strupr(temp);
+
+            if (strlen(s) != strlen(temp)) {
+              bout.nl();
+              bout.Color(3);
+              bout << fmt::sprintf("1) %s", to);
+              bout.nl();
+              bout.Color(3);
+              bout << fmt::sprintf("2) %s", temp);
+              bout.nl(2);
+
+              bout << "Which address is correct?";
+              bout.mpl(1);
+
+              int x = onek("12");
+
+              if (x == '2') {
+                strcpy(to, temp);
+              }
+            }
+          }
+        }
+      }
+
+      if (to_email) {
+        qwk_email_text(text.get(), title, to);
+      } else if (File::freespace_for_path(a()->config()->msgsdir()) < 10) {
+        // Not enough disk space
+        bout.nl();
+        bout.bputs("Sorry, not enough disk space left.");
+        pausescr();
+      } else {
+        qwk_post_text(text.get(), title, to_number<int16_t>(tosub) - 1);
+      }
+      curpos += to_number<int>(blocks) - 1;
+    }
+  }
+  close(repfile);
+}
+
+
+void upload_reply_packet() {
+  bool rec = true;
+  int save_conf = 0;
+  auto qwk_cfg = read_qwk_cfg();
+
+  if (!qwk_cfg.fu) {
+    qwk_cfg.fu = daten_t_now();
+  }
+
+  ++qwk_cfg.timesu;
+  write_qwk_cfg(qwk_cfg);
+
+  const auto save_sub = a()->current_user_sub_num();
+  if ((a()->uconfsub[1].confnum != -1) && (okconf(a()->user()))) {
+    save_conf = 1;
+    tmp_disable_conf(true);
+  }
+
+  auto name = StrCat(qwk_system_name(qwk_cfg), ".REP");
+
+  bout << fmt::sprintf("Hit 'Y' to upload reply packet %s :", name);
+  const auto namepath = FilePath(QWK_DIRECTORY, name);
+
+  const bool do_it = yesno();
+
+  if (do_it) {
+    if (a()->context().incom()) {
+      qwk_receive_file(namepath, &rec, a()->user()->data.qwk_protocol);
+      sleep_for(milliseconds(500));
+    }
+
+    if (rec) {
+      name = StrCat(qwk_system_name(qwk_cfg), ".MSG");
+      ready_reply_packet(namepath, name);
+      process_reply_dat(namepath);
+    } else {
+      sysoplog() << "Aborted";
+      bout.nl();
+      bout << fmt::sprintf("%s not found", name);
+      bout.nl();
+    }
+  }
+  if (save_conf) {
+    tmp_disable_conf(false);
+  }
+
+  a()->set_current_user_sub_num(save_sub);
 }
 
 void qwk_email_text(char* text, char* title, char* to) {
@@ -446,7 +588,7 @@ void qwk_email_text(char* text, char* title, char* to) {
   clear_quotes();
 
   if (un || sy) {
-    messagerec msg;
+    messagerec msg{};
     net_system_list_rec* csne = nullptr;
 
     if (File::freespace_for_path(a()->config()->msgsdir()) < 10) {
@@ -556,143 +698,12 @@ void qwk_inmsg(const char* text, messagerec* m1, const char* aux, const char* na
   *m1 = m;
 }
 
-void process_reply_dat(char* name) {
-  struct qwk_record qwk;
-  int curpos = 0;
-  int done = 0;
-  int to_email = 0;
-
-  int repfile = open(name, O_RDONLY | O_BINARY);
-
-  if (repfile < 0) {
-    bout.nl();
-    bout.Color(3);
-    bout.bputs("Can't open packet.");
-    pausescr();
-    return;
-  }
-
-  SET_BLOCK(repfile, curpos, sizeof(struct qwk_record));
-  read(repfile, &qwk, sizeof(struct qwk_record));
-
-  // Should check to makesure first block contains our bbs id
-  ++curpos;
-
-  bout.cls();
-
-  while (!done && !a()->hangup_) {
-    to_email = 0;
-
-    SET_BLOCK(repfile, curpos, sizeof(struct qwk_record));
-    ++curpos;
-
-    if (read(repfile, &qwk, sizeof(struct qwk_record)) < 1) {
-      done = 1;
-    } else {
-      char blocks[7];
-      char to[201];
-      char title[26];
-      char tosub[8];
-
-      strncpy(blocks, qwk.amount_blocks, 6);
-      blocks[6] = 0;
-
-      strncpy(tosub, qwk.msgnum, 7);
-      tosub[7] = 0;
-
-      strncpy(title, qwk.subject, 25);
-      title[25] = 0;
-
-      strncpy(to, qwk.to, 25);
-      to[25] = 0;
-      strupr(to);
-      StringTrim(to);
-
-      // If in sub 0 or not public, possibly route into email
-      if (to_number<int>(tosub) == 0) {
-        to_email = 1;
-      } else if (qwk.status != ' ' && qwk.status != '-') { // if not public
-        bout.cls();
-        bout.Color(1);
-        bout << fmt::sprintf("Message '2%s1' is marked 3PRIVATE", title);
-        bout.nl();
-        bout.Color(1);
-        bout << fmt::sprintf("It is addressed to 2%s", to);
-        bout.nl(2);
-        bout.Color(7);
-        bout << fmt::sprintf("Route into E-Mail?");
-        if (noyes()) {
-          to_email = 1;
-        }
-      }
-
-      std::unique_ptr<char[]> text(make_text_file(repfile, curpos, to_number<int>(blocks) - 1));
-      if (!text) {
-        curpos += to_number<int>(blocks) - 1;
-        continue;
-      }
-
-      if (to_email) {
-        char* temp;
-
-        if ((temp = strstr(text.get(), QWKFrom + 2)) != nullptr) {
-          char* s;
-
-          temp += strlen(QWKFrom + 2); // Get past 'QWKFrom:'
-          s = strchr(temp, '\r');
-
-          if (s) {
-            int x;
-
-            s[0] = 0;
-
-            StringTrim(temp);
-            strupr(temp);
-
-            if (strlen(s) != strlen(temp)) {
-              bout.nl();
-              bout.Color(3);
-              bout << fmt::sprintf("1) %s", to);
-              bout.nl();
-              bout.Color(3);
-              bout << fmt::sprintf("2) %s", temp);
-              bout.nl(2);
-
-              bout << fmt::sprintf("Which address is correct?");
-              bout.mpl(1);
-
-              x = onek("12");
-
-              if (x == '2') {
-                strcpy(to, temp);
-              }
-            }
-          }
-        }
-      }
-
-      if (to_email) {
-        qwk_email_text(text.get(), title, to);
-      } else if (File::freespace_for_path(a()->config()->msgsdir()) < 10) {
-        // Not enough disk space
-        bout.nl();
-        bout.bputs("Sorry, not enough disk space left.");
-        pausescr();
-      } else {
-        qwk_post_text(text.get(), title, to_number<int>(tosub) - 1);
-      }
-      curpos += to_number<int>(blocks) - 1;
-    }
-  }
-  repfile = close(repfile);
-}
-
-void qwk_post_text(char* text, char* title, int sub) {
-  messagerec m;
+void qwk_post_text(char* text, char* title, int16_t sub) {
+  messagerec m{};
   postrec p{};
 
   int dm, f, done = 0, pass = 0;
-  slrec ss;
+  slrec ss{};
   char user_name[101];
 
   while (!done && !a()->hangup_) {
@@ -702,7 +713,7 @@ void qwk_post_text(char* text, char* title, int sub) {
 
       while (!done5 && !a()->hangup_) {
         bout.nl();
-        bout << fmt::sprintf("Then which sub?  ?=List  Q=Don't Post :");
+        bout << "Then which sub?  ?=List  Q=Don't Post :";
         input(substr, 3);
 
         StringTrim(substr);
@@ -725,13 +736,13 @@ void qwk_post_text(char* text, char* title, int sub) {
       ++pass;
       continue;
     }
-    a()->set_current_user_sub_num(sub);
+    a()->set_current_user_sub_num(static_cast<uint16_t>(sub));
 
     // Busy files... allow to retry
     while (!a()->hangup_) {
       if (!qwk_iscan_literal(a()->current_user_sub_num())) {
         bout.nl();
-        bout << fmt::sprintf("MSG file is busy on another instance, try again?");
+        bout << "MSG file is busy on another instance, try again?";
         if (!noyes()) {
           ++pass;
           continue;
@@ -787,20 +798,20 @@ void qwk_post_text(char* text, char* title, int sub) {
 
     bout.cls();
     bout.Color(2);
-    bout << fmt::sprintf("Posting    : ");
+    bout << "Posting    : ";
     bout.Color(3);
     bout.bputs(title);
     bout.nl();
 
     bout.Color(2);
-    bout << fmt::sprintf("Posting on : ");
+    bout << "Posting on : ";
     bout.Color(3);
     bout.bputs(stripcolors(a()->current_sub().name));
     bout.nl();
 
-    if (a()->current_sub().nets.size() > 0) {
+    if (!a()->current_sub().nets.empty()) {
       bout.Color(2);
-      bout << fmt::sprintf("Going on   : ");
+      bout << "Going on   : ";
       bout.Color(3);
       for (const auto& xnp : a()->current_sub().nets) {
         bout << a()->net_networks[xnp.net_num].name << " ";
@@ -810,7 +821,7 @@ void qwk_post_text(char* text, char* title, int sub) {
 
     bout.nl();
     bout.Color(5);
-    bout << fmt::sprintf("Correct? ");
+    bout << "Correct? ";
 
     if (noyes()) {
       done = 1;
@@ -836,7 +847,7 @@ void qwk_post_text(char* text, char* title, int sub) {
 
       if (f == -1) {
         bout.nl();
-        bout << fmt::sprintf("MSG file is busy on another instance, try again?");
+        bout << "MSG file is busy on another instance, try again?";
         if (!noyes()) {
           return;
         }
@@ -849,7 +860,7 @@ void qwk_post_text(char* text, char* title, int sub) {
     uint8_t an = 0;
     if (an) {
       bout.Color(1);
-      bout << fmt::sprintf("Anonymous?");
+      bout << "Anonymous?";
       an = yesno() ? 1 : 0;
     }
     bout.nl();
@@ -940,48 +951,17 @@ int find_qwk_sub(struct qwk_sub_conf* subs, int amount, int fromsub) {
   return -1;
 }
 
-/* Start DAW */
-void qwk_receive_file(char* fn, bool* received, int i) {
-  if ((i <= 1) || (i == 5)) {
-    i = get_protocol(xf_up_temp);
-  }
-
-  switch (i) {
-  case -1:
-  case 0:
-  case WWIV_INTERNAL_PROT_ASCII:
-  case WWIV_INTERNAL_PROT_BATCH:
-    *received = 0;
-    break;
-  case WWIV_INTERNAL_PROT_XMODEM:
-  case WWIV_INTERNAL_PROT_XMODEMCRC:
-  case WWIV_INTERNAL_PROT_YMODEM:
-  case WWIV_INTERNAL_PROT_ZMODEM:
-    maybe_internal(fn, received, nullptr, false, i);
-    break;
-  default:
-    if (a()->context().incom()) {
-      extern_prot(i - WWIV_NUM_INTERNAL_PROTOCOLS, fn, 0);
-      *received = File::Exists(fn);
-    }
-    break;
-  }
-}
-/* End DAW */
 
 void qwk_sysop() {
-  struct qwk_config qwk_cfg;
-  char sn[10];
-
   if (!so()) {
     return;
   }
 
-  read_qwk_cfg(&qwk_cfg);
+  auto qwk_cfg = read_qwk_cfg();
 
   bool done = false;
   while (!done && !a()->hangup_) {
-    qwk_system_name(sn);
+    auto sn = qwk_system_name(qwk_cfg);
     bout.cls();
     bout << fmt::sprintf("[1] Hello   file : %s\r\n", qwk_cfg.hello);
     bout << fmt::sprintf("[2] News    file : %s\r\n", qwk_cfg.news);
@@ -989,69 +969,66 @@ void qwk_sysop() {
     bout << fmt::sprintf("[4] Packet name  : %s\r\n", sn);
     bout << fmt::sprintf("[5] Max messages per packet (0=No max): %d\r\n", qwk_cfg.max_msgs);
     bout << fmt::sprintf("[6] Modify Bulletins - Current amount= %d\r\n\n", qwk_cfg.amount_blts);
-    bout << fmt::sprintf("Hit <Enter> or Q to save and exit: [12345<CR>] ");
+    bout << "Hit <Enter> or Q to save and exit: [12345<CR>] ";
 
     int x = onek("Q123456\r\n");
     if (x == '1' || x == '2' || x == '3') {
       bout.nl();
       bout.Color(1);
-      bout << fmt::sprintf("Enter new filename:");
+      bout << "Enter new filename:";
       bout.mpl(12);
     }
 
     switch (x) {
     case '1':
-      input(qwk_cfg.hello, 12);
+      qwk_cfg.hello = input(12);
       break;
     case '2':
-      input(qwk_cfg.news, 12);
+      qwk_cfg.news = input(12);
       break;
     case '3':
-      input(qwk_cfg.bye, 12);
+      qwk_cfg.bye = input(12);
       break;
-
-    case '4':
-      write_qwk_cfg(&qwk_cfg);
-      qwk_system_name(sn);
+    case '4': {
+      sn = qwk_system_name(qwk_cfg);
+      write_qwk_cfg(qwk_cfg);
       bout.nl();
       bout.Color(1);
       bout << fmt::sprintf("Current name : %s", sn);
       bout.nl();
-      bout << fmt::sprintf("Enter new packet name: ");
-      input(sn, 8);
-      if (sn[0]) {
-        strcpy(qwk_cfg.packet_name, sn);
+      bout << "Enter new packet name: ";
+      sn = input(8);
+      if (!sn.empty()) {
+        qwk_cfg.packet_name = sn;
       }
-
-      write_qwk_cfg(&qwk_cfg);
-      break;
+      write_qwk_cfg(qwk_cfg);
+    } break;
 
     case '5': {
       bout.Color(1);
-      bout << fmt::sprintf("Enter max messages per packet, 0=No Max: ");
+      bout << "Enter max messages per packet, 0=No Max: ";
       bout.mpl(5);
-      string tmp = input(5);
+      auto tmp = input(5);
       qwk_cfg.max_msgs = to_number<uint16_t>(tmp);
     } break;
     case '6':
-      modify_bulletins(&qwk_cfg);
+      modify_bulletins(qwk_cfg);
       break;
     default:
       done = true;
     }
   }
 
-  write_qwk_cfg(&qwk_cfg);
-  close_qwk_cfg(&qwk_cfg);
+  write_qwk_cfg(qwk_cfg);
 }
 
-void modify_bulletins(struct qwk_config* qwk_cfg) {
+void modify_bulletins(qwk_config& qwk_cfg) {
   char s[101], t[101];
 
-  bool done = false;
+  auto done = false;
   while (!done && !a()->hangup_) {
     bout.nl();
-    bout << fmt::sprintf("Add - Delete - ? List - Quit");
+    bout << "Add - Delete - ? List - Quit";
     bout.mpl(1);
 
     int key = onek("Q\rAD?");
@@ -1062,29 +1039,24 @@ void modify_bulletins(struct qwk_config* qwk_cfg) {
       return;
     case 'D': {
       bout.nl();
-      bout << fmt::sprintf("Which one?");
+      bout << "Which one?";
       bout.mpl(2);
 
       input(s, 2);
-      int x = to_number<int>(s);
-
-      if (x <= qwk_cfg->amount_blts) {
-        strcpy(qwk_cfg->blt[x], qwk_cfg->blt[qwk_cfg->amount_blts - 1]);
-        strcpy(qwk_cfg->bltname[x], qwk_cfg->bltname[qwk_cfg->amount_blts - 1]);
-
-        free(qwk_cfg->blt[qwk_cfg->amount_blts - 1]);
-        free(qwk_cfg->bltname[qwk_cfg->amount_blts - 1]);
-
-        --qwk_cfg->amount_blts;
+      const int x = to_number<int>(s);
+      // Delete the one at the right position.
+      if (x >= 0 && x < ssize(qwk_cfg.bulletins)) {
+        erase_at(qwk_cfg.bulletins, x);
+        --qwk_cfg.amount_blts;
       }
     } break;
-    case 'A':
+    case 'A': {
       bout.nl();
       bout.bputs("Enter complete path to Bulletin");
       input(s, 80);
 
       if (!File::Exists(s)) {
-        bout << fmt::sprintf("File doesn't exist, continue?");
+        bout << "File doesn't exist, continue?";
         if (!yesno()) {
           break;
         }
@@ -1098,26 +1070,21 @@ void modify_bulletins(struct qwk_config* qwk_cfg) {
         break;
       }
 
-      qwk_cfg->blt[qwk_cfg->amount_blts] = (char*)calloc(BULL_SIZE, sizeof(char));
-      qwk_cfg->bltname[qwk_cfg->amount_blts] = (char*)calloc(BNAME_SIZE, sizeof(char));
-
-      strcpy(qwk_cfg->blt[qwk_cfg->amount_blts], s);
-      strcpy(qwk_cfg->bltname[qwk_cfg->amount_blts], t);
-      ++qwk_cfg->amount_blts;
-      break;
+      qwk_bulletin b{t, s};
+      qwk_cfg.bulletins.emplace_back(b);
+      ++qwk_cfg.amount_blts;
+    } break;
     case '?': {
-      bool abort = false;
-      int x = 0;
-      while (x < qwk_cfg->amount_blts && !abort && !a()->hangup_) {
-        bout << fmt::sprintf("[%d] %s Is copied over from", x + 1, qwk_cfg->bltname[x]);
+      int x = 1;
+      for (const auto& b : qwk_cfg.bulletins) {
+        if (checka()) { break; }
+        bout << fmt::sprintf("[%d] %s Is copied over from", x++, b.name);
         bout.nl();
         bout.Color(7);
         bout << string(78, '\xCD');
         bout.nl();
-        bout << fmt::sprintf(qwk_cfg->blt[x]);
+        bout << b.path;
         bout.nl();
-        abort = checka();
-        ++x;
       }
     } break;
     }
@@ -1185,22 +1152,22 @@ void config_qwk_bw() {
       a()->user()->data.qwk_keep_routing = !a()->user()->data.qwk_keep_routing;
       break;
     case 8: {
-      struct qwk_junk qj;
+      qwk_junk qj{};
       memset(&qj, 0, sizeof(struct qwk_junk));
       bout.cls();
 
-      unsigned short arcno = static_cast<unsigned short>(select_qwk_archiver(&qj, 1));
+      auto arcno = static_cast<unsigned short>(select_qwk_archiver(&qj, 1));
       if (!qj.abort) {
         a()->user()->data.qwk_archive = arcno;
       }
       break;
     }
     case 9: {
-      struct qwk_junk qj;
+      qwk_junk qj{};
       memset(&qj, 0, sizeof(struct qwk_junk));
       bout.cls();
 
-      unsigned short arcno = select_qwk_protocol(&qj);
+      const auto arcno = select_qwk_protocol(&qj);
       if (!qj.abort) {
         a()->user()->data.qwk_protocol = arcno;
       }
