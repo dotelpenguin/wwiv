@@ -225,6 +225,6 @@ vcpkg_installed
 # Flowcharts directory
 flowcharts/
 
-# Temp directory
+# Temporary files and directories
 temp/
 
