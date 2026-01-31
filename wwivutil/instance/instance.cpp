@@ -128,6 +128,11 @@ public:
     std::cout << std::endl;
 
     for (const auto& instance : instances) {
+      // Skip instance 0 as it will likely always be stale
+      if (instance.node_number() == 0) {
+        continue;
+      }
+
       const auto updated_time = instance.updated().to_system_clock();
       const auto time_since_update = now - updated_time;
 
