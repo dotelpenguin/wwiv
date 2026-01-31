@@ -23,6 +23,7 @@
 #include "core/stl.h"
 #include "core/strings.h"
 
+#include <chrono>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -30,6 +31,7 @@
 using wwiv::core::BooleanCommandLineArgument;
 using namespace wwiv::sdk;
 using namespace wwiv::strings;
+using namespace std::chrono;
 
 namespace wwiv::wwivutil {
 
@@ -94,8 +96,66 @@ public:
 
 };
 
+class InstanceCheckStaleCommand final : public UtilCommand {
+public:
+  InstanceCheckStaleCommand(): UtilCommand("checkstale", "Checks for stale instance.dat entries.") {}
+
+  [[nodiscard]] std::string GetUsage() const override {
+    std::ostringstream ss;
+    ss << "Usage: " << std::endl << std::endl;
+    ss << "  checkstale [--hours=N] : Checks for stale instances (default: 6 hours)" << std::endl << std::endl;
+    return ss.str();
+  }
+
+  bool AddSubCommands() override {
+    add_argument({"hours", "Number of hours before an instance is considered stale (default: 6)", "6"});
+    return true;
+  }
+
+  int Execute() override {
+    Instances instances(*config()->config());
+    if (!instances) {
+      std::cout << "Unable to read Instance information." << std::endl;
+      return 1;
+    }
+
+    const auto stale_threshold_hours = iarg("hours");
+    const auto stale_threshold = hours(stale_threshold_hours);
+    const auto now = system_clock::now();
+    auto stale_count = 0;
+
+    std::cout << "Checking for stale instances (threshold: " << stale_threshold_hours << " hours)..." << std::endl;
+    std::cout << std::endl;
+
+    for (const auto& instance : instances) {
+      const auto updated_time = instance.updated().to_system_clock();
+      const auto time_since_update = now - updated_time;
+
+      if (time_since_update > stale_threshold) {
+        stale_count++;
+        const auto stale_duration = duration_cast<duration<double>>(time_since_update);
+        std::cout << "STALE: Node #" << instance.node_number() << std::endl;
+        std::cout << "  User        : #" << instance.user_number() << std::endl;
+        std::cout << "  Location    : " << instance.location_description() << std::endl;
+        std::cout << "  Last Update : " << instance.updated().to_string() << std::endl;
+        std::cout << "  Stale For   : " << wwiv::core::to_string(stale_duration) << std::endl;
+        std::cout << std::endl;
+      }
+    }
+
+    if (stale_count == 0) {
+      std::cout << "No stale instances found." << std::endl;
+      return 0;
+    }
+
+    std::cout << "Found " << stale_count << " stale instance(s)." << std::endl;
+    return stale_count;
+  }
+};
+
 bool InstanceCommand::AddSubCommands() {
   add(std::make_unique<InstanceDumpCommand>());
+  add(std::make_unique<InstanceCheckStaleCommand>());
   return true;
 }
 
