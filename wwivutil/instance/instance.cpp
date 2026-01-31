@@ -269,14 +269,17 @@ public:
       if (instances.upsert(node_num, ir)) {
         // Verify the write by reading it back
         const auto verify_instance = instances.at(node_num);
+        const auto description = verify_instance.location_description();
         if (verify_instance.loc_code() == INST_LOC_WFC && 
             verify_instance.user_number() == 0 &&
             !verify_instance.online()) {
           std::cout << "Fixed Node #" << node_num << " (reset to 'Waiting For Call')" << std::endl;
+          std::cout << "  Description: " << description << std::endl;
           fixed_count++;
         } else {
           std::cerr << "WARNING: Node #" << node_num << " was written but verification failed." << std::endl;
-          std::cerr << "  Location: " << verify_instance.location_description() << std::endl;
+          std::cerr << "  Location Code: " << verify_instance.loc_code() << " (expected: " << INST_LOC_WFC << ")" << std::endl;
+          std::cerr << "  Description: " << description << std::endl;
           std::cerr << "  User: #" << verify_instance.user_number() << std::endl;
           std::cerr << "  Online: " << (verify_instance.online() ? "yes" : "no") << std::endl;
         }
