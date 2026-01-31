@@ -258,6 +258,7 @@ public:
       auto ir = instance.ir();
       
       // Reset to "Waiting For Call" state
+      ir.number = static_cast<int16_t>(node_num);  // Ensure number matches
       ir.loc = INST_LOC_WFC;
       ir.subloc = 0;
       ir.flags = INST_FLAGS_NONE;  // Clear ONLINE and other flags
@@ -266,8 +267,19 @@ public:
       
       // Update the instance
       if (instances.upsert(node_num, ir)) {
-        std::cout << "Fixed Node #" << node_num << " (reset to 'Waiting For Call')" << std::endl;
-        fixed_count++;
+        // Verify the write by reading it back
+        const auto verify_instance = instances.at(node_num);
+        if (verify_instance.loc_code() == INST_LOC_WFC && 
+            verify_instance.user_number() == 0 &&
+            !verify_instance.online()) {
+          std::cout << "Fixed Node #" << node_num << " (reset to 'Waiting For Call')" << std::endl;
+          fixed_count++;
+        } else {
+          std::cerr << "WARNING: Node #" << node_num << " was written but verification failed." << std::endl;
+          std::cerr << "  Location: " << verify_instance.location_description() << std::endl;
+          std::cerr << "  User: #" << verify_instance.user_number() << std::endl;
+          std::cerr << "  Online: " << (verify_instance.online() ? "yes" : "no") << std::endl;
+        }
       } else {
         std::cerr << "ERROR: Failed to update Node #" << node_num << std::endl;
       }
