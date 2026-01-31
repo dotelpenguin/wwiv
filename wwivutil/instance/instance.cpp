@@ -27,6 +27,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <vector>
 
 using wwiv::core::BooleanCommandLineArgument;
 using namespace wwiv::sdk;
@@ -158,9 +159,128 @@ public:
   }
 };
 
+// Helper function to find stale instances
+static std::vector<std::pair<int, Instance>> find_stale_instances(Instances& instances, int stale_threshold_hours) {
+  std::vector<std::pair<int, Instance>> stale_list;
+  const auto stale_threshold = hours(stale_threshold_hours);
+  const auto now = system_clock::now();
+
+  for (const auto& instance : instances) {
+    // Skip instance 0 as it will likely always be stale
+    if (instance.node_number() == 0) {
+      continue;
+    }
+
+    const auto updated_time = instance.updated().to_system_clock();
+    const auto time_since_update = now - updated_time;
+
+    if (time_since_update > stale_threshold) {
+      stale_list.emplace_back(instance.node_number(), instance);
+    }
+  }
+
+  return stale_list;
+}
+
+class InstanceFixStaleCommand final : public UtilCommand {
+public:
+  InstanceFixStaleCommand(): UtilCommand("fixstale", "Fixes stale instance.dat entries by resetting them to 'Waiting For Call'.") {}
+
+  [[nodiscard]] std::string GetUsage() const override {
+    std::ostringstream ss;
+    ss << "Usage: " << std::endl << std::endl;
+    ss << "  fixstale [--hours=N] [--force] : Fixes stale instances (default: 6 hours)" << std::endl;
+    ss << "    --force : Skip confirmation prompt" << std::endl << std::endl;
+    return ss.str();
+  }
+
+  bool AddSubCommands() override {
+    add_argument({"hours", "Number of hours before an instance is considered stale (default: 6)", "6"});
+    add_argument(BooleanCommandLineArgument("force", "Skip confirmation prompt", false));
+    return true;
+  }
+
+  int Execute() override {
+    Instances instances(*config()->config());
+    if (!instances) {
+      std::cout << "Unable to read Instance information." << std::endl;
+      return 1;
+    }
+
+    const auto stale_threshold_hours = iarg("hours");
+    const auto force = barg("force");
+
+    std::cout << "Checking for stale instances (threshold: " << stale_threshold_hours << " hours)..." << std::endl;
+    std::cout << std::endl;
+
+    auto stale_list = find_stale_instances(instances, stale_threshold_hours);
+
+    if (stale_list.empty()) {
+      std::cout << "No stale instances found." << std::endl;
+      return 0;
+    }
+
+    // Display stale instances
+    for (const auto& [node_num, instance] : stale_list) {
+      const auto updated_time = instance.updated().to_system_clock();
+      const auto now = system_clock::now();
+      const auto time_since_update = now - updated_time;
+      const auto stale_duration = duration_cast<duration<double>>(time_since_update);
+      
+      std::cout << "STALE: Node #" << node_num << std::endl;
+      std::cout << "  User        : #" << instance.user_number() << std::endl;
+      std::cout << "  Location    : " << instance.location_description() << std::endl;
+      std::cout << "  Last Update : " << instance.updated().to_string() << std::endl;
+      std::cout << "  Stale For   : " << wwiv::core::to_string(stale_duration) << std::endl;
+      std::cout << std::endl;
+    }
+
+    std::cout << "Found " << stale_list.size() << " stale instance(s)." << std::endl;
+
+    // Prompt for confirmation unless --force
+    if (!force) {
+      std::cout << std::endl;
+      std::cout << "Reset these instances to 'Waiting For Call'? (y/n): ";
+      std::string response;
+      std::cin >> response;
+      if (response != "y" && response != "Y" && response != "yes" && response != "YES") {
+        std::cout << "Cancelled." << std::endl;
+        return 0;
+      }
+    }
+
+    // Fix stale instances
+    auto fixed_count = 0;
+    for (const auto& [node_num, instance] : stale_list) {
+      // Get the instance record and modify it
+      auto ir = instance.ir();
+      
+      // Reset to "Waiting For Call" state
+      ir.loc = INST_LOC_WFC;
+      ir.subloc = 0;
+      ir.flags = INST_FLAGS_NONE;  // Clear ONLINE and other flags
+      ir.user = 0;  // Clear user number
+      ir.modem_speed = 0;  // Clear modem speed
+      
+      // Update the instance
+      if (instances.upsert(node_num, ir)) {
+        std::cout << "Fixed Node #" << node_num << " (reset to 'Waiting For Call')" << std::endl;
+        fixed_count++;
+      } else {
+        std::cerr << "ERROR: Failed to update Node #" << node_num << std::endl;
+      }
+    }
+
+    std::cout << std::endl;
+    std::cout << "Fixed " << fixed_count << " stale instance(s)." << std::endl;
+    return stale_list.size() - fixed_count;  // Return number of failures
+  }
+};
+
 bool InstanceCommand::AddSubCommands() {
   add(std::make_unique<InstanceDumpCommand>());
   add(std::make_unique<InstanceCheckStaleCommand>());
+  add(std::make_unique<InstanceFixStaleCommand>());
   return true;
 }
 
