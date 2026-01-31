@@ -159,9 +159,9 @@ public:
   }
 };
 
-// Helper function to find stale instances
-static std::vector<std::pair<int, Instance>> find_stale_instances(Instances& instances, int stale_threshold_hours) {
-  std::vector<std::pair<int, Instance>> stale_list;
+// Helper function to find stale instance node numbers
+static std::vector<int> find_stale_instances(Instances& instances, int stale_threshold_hours) {
+  std::vector<int> stale_list;
   const auto stale_threshold = hours(stale_threshold_hours);
   const auto now = system_clock::now();
 
@@ -175,7 +175,7 @@ static std::vector<std::pair<int, Instance>> find_stale_instances(Instances& ins
     const auto time_since_update = now - updated_time;
 
     if (time_since_update > stale_threshold) {
-      stale_list.emplace_back(instance.node_number(), instance);
+      stale_list.push_back(instance.node_number());
     }
   }
 
@@ -221,9 +221,10 @@ public:
     }
 
     // Display stale instances
-    for (const auto& [node_num, instance] : stale_list) {
+    const auto now = system_clock::now();
+    for (const auto node_num : stale_list) {
+      const auto instance = instances.at(node_num);
       const auto updated_time = instance.updated().to_system_clock();
-      const auto now = system_clock::now();
       const auto time_since_update = now - updated_time;
       const auto stale_duration = duration_cast<duration<double>>(time_since_update);
       
@@ -251,8 +252,9 @@ public:
 
     // Fix stale instances
     auto fixed_count = 0;
-    for (const auto& [node_num, instance] : stale_list) {
+    for (const auto node_num : stale_list) {
       // Get the instance record and modify it
+      auto instance = instances.at(node_num);
       auto ir = instance.ir();
       
       // Reset to "Waiting For Call" state
