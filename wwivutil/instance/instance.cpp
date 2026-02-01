@@ -262,7 +262,7 @@ public:
       ir.loc = INST_LOC_WFC;
       ir.subloc = 0;
       ir.flags = INST_FLAGS_NONE;  // Clear ONLINE and other flags
-      ir.user = 0;  // Clear user number
+      // Preserve ir.user (matching WFC screen behavior)
       ir.modem_speed = 0;  // Clear modem speed
       
       // Update the instance
@@ -270,8 +270,7 @@ public:
         // Verify the write by reading it back
         const auto verify_instance = instances.at(node_num);
         const auto description = verify_instance.location_description();
-        if (verify_instance.loc_code() == INST_LOC_WFC && 
-            verify_instance.user_number() == 0 &&
+        if (verify_instance.loc_code() == INST_LOC_WFC &&
             !verify_instance.online()) {
           std::cout << "Fixed Node #" << node_num << " (reset to 'Waiting For Call')" << std::endl;
           std::cout << "  Description: " << description << std::endl;
